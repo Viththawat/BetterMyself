@@ -3,7 +3,7 @@
 -- Run this in: Supabase dashboard → SQL editor → New query
 -- ============================================================
 
-create table public.custom_habits (
+create table if not exists public.custom_habits (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid references auth.users on delete cascade not null,
   name       text not null,
@@ -13,7 +13,7 @@ create table public.custom_habits (
   created_at timestamptz not null default now()
 );
 
-create table public.custom_rewards (
+create table if not exists public.custom_rewards (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid references auth.users on delete cascade not null,
   name       text not null,
@@ -27,8 +27,10 @@ create table public.custom_rewards (
 alter table public.custom_habits  enable row level security;
 alter table public.custom_rewards enable row level security;
 
+drop policy if exists "custom_habits: own rows" on public.custom_habits;
 create policy "custom_habits: own rows" on public.custom_habits
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+drop policy if exists "custom_rewards: own rows" on public.custom_rewards;
 create policy "custom_rewards: own rows" on public.custom_rewards
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
