@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { todayKey, weekNum, comboPct, comboMult, MILESTONES, currentQuest, pickQuestId } from '../economy';
-import { DEFAULT_HABITS, DEFAULT_REWARDS, AREAS, ACTIVITIES } from '../constants';
+import { DEFAULT_HABITS, DEFAULT_REWARDS, DEFAULT_EXERCISES, AREAS, ACTIVITIES } from '../constants';
 
 const DEFAULT_EX_TARGETS = { pushups: 24, squats: 30, plank: 55, lunges: 20 };
 const DEFAULT_TIME = { sleep: 7, work: 5, exercise: 1, reading: 1, scroll: 3, gaming: 1, tv: 1, chores: 5 };
@@ -10,13 +10,13 @@ function seedState() {
   return {
     coins: 480, streak: 0, bestStreak: 0,
     day: todayKey(), checks: {}, mood: null,
-    learned: [], exTargets: DEFAULT_EX_TARGETS, exDone: {},
+    learned: [], exDone: {},
     energyGoal: 480, energyPlan: [],
     time: { ...DEFAULT_TIME }, redeemed: [],
     history: [3, 4, 2, 5, 4, 5, 6], streakBumped: false,
     milestonesPaid: [], week: weekNum(),
     questId: pickQuestId(), questProgress: 0, questClaimed: false,
-    habits: [], rewards: [],
+    habits: [], rewards: [], exercises: [],
   };
 }
 
@@ -130,20 +130,21 @@ export function useStore(user) {
   }), [user?.id]);
 
   const logExercise = useCallback((ex, reps) => setS(p => {
-    const target = p.exTargets[ex.id];
     let next = { ...p, exDone: { ...p.exDone, [ex.id]: reps } };
     if (user) supabase.from('exercise_logs').upsert(
       { user_id: user.id, date: todayKey(), exercise_id: ex.id, reps_done: reps, updated_at: new Date().toISOString() },
       { onConflict: 'user_id,date,exercise_id' }
     );
-    if (reps >= target) {
-      const grow = ex.id === 'plank' ? 5 : Math.max(1, Math.round(target * 0.08));
+    if (reps >= ex.target) {
+      const grow = ex.unit === 'sec' ? 5 : Math.max(1, Math.round(ex.target * 0.08));
+      const newTarget = ex.target + grow;
       const gain = Math.round(20 * comboMult(p.streak));
       const pct = comboPct(p.streak);
-      next.exTargets = { ...p.exTargets, [ex.id]: target + grow };
+      next.exercises = p.exercises.map(e => e.id === ex.id ? { ...e, target: newTarget } : e);
       next.coins = p.coins + gain;
       next = trackQuest(next, 'exercise');
-      setTimeout(() => toast(`${ex.name} crushed!`, `Next: ${target + grow} ${ex.unit} · +${gain} coins${pct > 0 ? ` (+${pct}% combo)` : ''}`), 0);
+      if (user) supabase.from('custom_exercises').update({ target: newTarget }).eq('id', ex.id);
+      setTimeout(() => toast(`${ex.name} crushed!`, `Next: ${newTarget} ${ex.unit} · +${gain} coins${pct > 0 ? ` (+${pct}% combo)` : ''}`), 0);
     }
     next = maybeBumpStreak(next);
     scheduleSync(next);
@@ -183,9 +184,11 @@ export function useStore(user) {
     const next = {
       ...seedState(),
       coins: p.coins, streak: p.streak, bestStreak: p.bestStreak,
-      exTargets: p.exTargets, history: p.history, redeemed: p.redeemed,
+      history: p.history, redeemed: p.redeemed,
       milestonesPaid: p.milestonesPaid, week: p.week,
       questId: p.questId, questProgress: p.questProgress, questClaimed: p.questClaimed,
+      habits: p.habits, rewards: p.rewards,
+      exercises: p.exercises,
     };
     scheduleSync(next);
     return next;
@@ -241,13 +244,38 @@ export function useStore(user) {
     setS(p => ({ ...p, rewards: p.rewards.filter(r => r.id !== id) }));
   }, [user?.id]);
 
-  return { s, loading, bindToast, toast, toggleHabit, setMood, addLearning, removeLearning, logExercise, addActivity, removeActivity, setTime, redeem, resetDay, addHabit, updateHabit, deleteHabit, addReward, updateReward, deleteReward };
+  const addExercise = useCallback(async (vals) => {
+    if (!user) return;
+    const { data, error } = await supabase.from('custom_exercises')
+      .insert({ user_id: user.id, name: vals.name, unit: vals.unit, target: vals.target })
+      .select().single();
+    if (error) { toast('Could not add exercise', error.message); return; }
+    setS(p => ({ ...p, exercises: [...p.exercises, data] }));
+  }, [user?.id]);
+
+  const updateExercise = useCallback(async (id, vals) => {
+    if (!user) return;
+    const { data, error } = await supabase.from('custom_exercises')
+      .update({ name: vals.name, unit: vals.unit, target: vals.target })
+      .eq('id', id).select().single();
+    if (error) { toast('Could not update exercise', error.message); return; }
+    setS(p => ({ ...p, exercises: p.exercises.map(e => e.id === id ? data : e) }));
+  }, [user?.id]);
+
+  const deleteExercise = useCallback(async (id) => {
+    if (!user) return;
+    const { error } = await supabase.from('custom_exercises').delete().eq('id', id);
+    if (error) { toast('Could not delete exercise', error.message); return; }
+    setS(p => ({ ...p, exercises: p.exercises.filter(e => e.id !== id) }));
+  }, [user?.id]);
+
+  return { s, loading, bindToast, toast, toggleHabit, setMood, addLearning, removeLearning, logExercise, addActivity, removeActivity, setTime, redeem, resetDay, addHabit, updateHabit, deleteHabit, addReward, updateReward, deleteReward, addExercise, updateExercise, deleteExercise };
 }
 
 // ── Supabase data loader ──────────────────────────────────────
 async function loadData(userId) {
   const today = todayKey();
-  const [profRes, dailyRes, learnRes, exRes, redRes, habitsRes, rewardsRes] = await Promise.all([
+  const [profRes, dailyRes, learnRes, exRes, redRes, habitsRes, rewardsRes, exercisesRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', userId).single(),
     supabase.from('daily_logs').select('*').eq('user_id', userId).eq('date', today).single(),
     supabase.from('learned_entries').select('*').eq('user_id', userId).eq('date', today).order('created_at', { ascending: false }),
@@ -255,6 +283,7 @@ async function loadData(userId) {
     supabase.from('redeemed_rewards').select('*').eq('user_id', userId).order('redeemed_at', { ascending: false }).limit(20),
     supabase.from('custom_habits').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
     supabase.from('custom_rewards').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabase.from('custom_exercises').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
   ]);
 
   let habits = habitsRes.data || [];
@@ -271,6 +300,14 @@ async function loadData(userId) {
     rewards = data || [];
   }
 
+  let exercises = exercisesRes.data || [];
+  if (exercises.length === 0) {
+    const exTargetSeed = profRes.data?.ex_targets || DEFAULT_EX_TARGETS;
+    const seed = DEFAULT_EXERCISES.map(ex => ({ user_id: userId, name: ex.name, unit: ex.unit, target: exTargetSeed[ex.id] ?? 10 }));
+    const { data } = await supabase.from('custom_exercises').insert(seed).select();
+    exercises = data || [];
+  }
+
   const p = profRes.data || {};
   const d = dailyRes.data || {};
   const isNewDay = p.last_active_date && p.last_active_date !== today;
@@ -284,7 +321,6 @@ async function loadData(userId) {
     coins:          p.coins          ?? 480,
     streak:         p.streak         ?? 0,
     bestStreak:     p.best_streak    ?? 0,
-    exTargets:      p.ex_targets     ?? DEFAULT_EX_TARGETS,
     milestonesPaid: p.milestones_paid ?? [],
     history:        p.history        ?? [3, 4, 2, 5, 4, 5, 6],
     week:           weekNum(),
@@ -304,6 +340,7 @@ async function loadData(userId) {
     redeemed:       (redRes.data || []).map(r => ({ id: r.reward_id, name: r.reward_name, cost: r.cost, ts: new Date(r.redeemed_at).getTime() })),
     habits,
     rewards,
+    exercises,
   };
 }
 
@@ -313,7 +350,7 @@ async function syncData(userId, s) {
   await Promise.all([
     supabase.from('profiles').upsert({
       id: userId, coins: s.coins, streak: s.streak, best_streak: s.bestStreak,
-      ex_targets: s.exTargets, milestones_paid: s.milestonesPaid, history: s.history,
+      milestones_paid: s.milestonesPaid, history: s.history,
       week_num: s.week, quest_id: s.questId, quest_progress: s.questProgress,
       quest_claimed: s.questClaimed, last_active_date: today, updated_at: new Date().toISOString(),
     }),

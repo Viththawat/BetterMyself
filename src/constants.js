@@ -53,7 +53,7 @@ export const DEFAULT_REWARDS = [
   { id: 'splurge', name: 'Big splurge fund',    note: 'Save up for something real', cost: 1800, area: 'Goal'    },
 ];
 
-export const EXERCISES = [
+export const DEFAULT_EXERCISES = [
   { id: 'pushups', name: 'Push-ups', unit: 'reps' },
   { id: 'squats',  name: 'Squats',   unit: 'reps' },
   { id: 'plank',   name: 'Plank',    unit: 'sec'  },
