@@ -206,8 +206,8 @@ export default function Manage({ store }) {
   const { s, addHabit, updateHabit, deleteHabit, addReward, updateReward, deleteReward, addExercise, updateExercise, deleteExercise } = store;
   return (
     <div>
-      <SectionHead kicker="Customize" title="Manage your habits & rewards"
-        sub="Edit, remove, or add your own daily check-ins and shop items." />
+      <SectionHead kicker="Customize" title="Manage your habits, rewards & exercises"
+        sub="Edit, remove, or add your own daily check-ins, shop items, and exercises." />
       <HabitsSection habits={s.habits} addHabit={addHabit} updateHabit={updateHabit} deleteHabit={deleteHabit} />
       <div style={{ height: 'var(--gap)' }} />
       <RewardsSection rewards={s.rewards} addReward={addReward} updateReward={updateReward} deleteReward={deleteReward} />
