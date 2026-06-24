@@ -16,6 +16,7 @@ function seedState() {
     history: [3, 4, 2, 5, 4, 5, 6], streakBumped: false,
     milestonesPaid: [], week: weekNum(),
     questId: pickQuestId(), questProgress: 0, questClaimed: false,
+    habits: [], rewards: [],
   };
 }
 
