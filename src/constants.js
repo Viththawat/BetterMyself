@@ -6,7 +6,7 @@ export const AREAS = [
   { id: 'fuel',  name: 'Fuel',  tag: 'Nutrition' },
 ];
 
-export const HABITS = [
+export const DEFAULT_HABITS = [
   { id: 'read',    name: 'Read 20 minutes',      area: 'mind', coins: 10 },
   { id: 'move',    name: 'Move your body',        area: 'body', coins: 10 },
   { id: 'medit',   name: 'Meditate 10 minutes',   area: 'calm', coins: 10 },
@@ -44,7 +44,7 @@ export const TIME_CATS = [
   { id: 'chores',   name: 'Life & chores',  type: 'neutral',  color: '#a89d86' },
 ];
 
-export const REWARDS = [
+export const DEFAULT_REWARDS = [
   { id: 'coffee',  name: 'Specialty coffee',    note: 'A small daily ritual',       cost: 180,  area: 'Treat'   },
   { id: 'movie',   name: 'Movie night',         note: 'Popcorn included',           cost: 420,  area: 'Leisure' },
   { id: 'book',    name: 'A new book',          note: 'Feed the Mind area',         cost: 650,  area: 'Mind'    },

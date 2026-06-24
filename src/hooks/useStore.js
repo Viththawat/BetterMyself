@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { todayKey, weekNum, comboPct, comboMult, MILESTONES, currentQuest, pickQuestId } from '../economy';
-import { HABITS, AREAS, ACTIVITIES } from '../constants';
+import { DEFAULT_HABITS, DEFAULT_REWARDS, AREAS, ACTIVITIES } from '../constants';
 
 const DEFAULT_EX_TARGETS = { pushups: 24, squats: 30, plank: 55, lunges: 20 };
 const DEFAULT_TIME = { sleep: 7, work: 5, exercise: 1, reading: 1, scroll: 3, gaming: 1, tv: 1, chores: 5 };
@@ -22,7 +22,7 @@ function seedState() {
 export function areaProgress(s) {
   const out = {};
   AREAS.forEach(a => {
-    const hs = HABITS.filter(h => h.area === a.id);
+    const hs = s.habits.filter(h => h.area === a.id);
     let pct = hs.filter(h => s.checks[h.id]).length / Math.max(1, hs.length);
     if (a.id === 'mind') pct = Math.min(1, pct + Math.min(0.5, s.learned.length * 0.18));
     if (a.id === 'body') pct = Math.min(1, pct + Math.min(0.5, Object.keys(s.exDone).length * 0.14));
@@ -190,19 +190,85 @@ export function useStore(user) {
     return next;
   }), [scheduleSync]);
 
-  return { s, loading, bindToast, toast, toggleHabit, setMood, addLearning, removeLearning, logExercise, addActivity, removeActivity, setTime, redeem, resetDay };
+  const addHabit = useCallback(async (vals) => {
+    if (!user) return;
+    const { data, error } = await supabase.from('custom_habits')
+      .insert({ user_id: user.id, name: vals.name, area: vals.area, coins: vals.coins })
+      .select().single();
+    if (error) { toast('Could not add habit', error.message); return; }
+    setS(p => ({ ...p, habits: [...p.habits, data] }));
+  }, [user?.id]);
+
+  const updateHabit = useCallback(async (id, vals) => {
+    if (!user) return;
+    const { data, error } = await supabase.from('custom_habits')
+      .update({ name: vals.name, area: vals.area, coins: vals.coins })
+      .eq('id', id).select().single();
+    if (error) { toast('Could not update habit', error.message); return; }
+    setS(p => ({ ...p, habits: p.habits.map(h => h.id === id ? data : h) }));
+  }, [user?.id]);
+
+  const deleteHabit = useCallback(async (id) => {
+    if (!user) return;
+    const { error } = await supabase.from('custom_habits').delete().eq('id', id);
+    if (error) { toast('Could not delete habit', error.message); return; }
+    setS(p => ({ ...p, habits: p.habits.filter(h => h.id !== id) }));
+  }, [user?.id]);
+
+  const addReward = useCallback(async (vals) => {
+    if (!user) return;
+    const { data, error } = await supabase.from('custom_rewards')
+      .insert({ user_id: user.id, name: vals.name, note: vals.note || null, cost: vals.cost, area: vals.area || null })
+      .select().single();
+    if (error) { toast('Could not add reward', error.message); return; }
+    setS(p => ({ ...p, rewards: [...p.rewards, data] }));
+  }, [user?.id]);
+
+  const updateReward = useCallback(async (id, vals) => {
+    if (!user) return;
+    const { data, error } = await supabase.from('custom_rewards')
+      .update({ name: vals.name, note: vals.note || null, cost: vals.cost, area: vals.area || null })
+      .eq('id', id).select().single();
+    if (error) { toast('Could not update reward', error.message); return; }
+    setS(p => ({ ...p, rewards: p.rewards.map(r => r.id === id ? data : r) }));
+  }, [user?.id]);
+
+  const deleteReward = useCallback(async (id) => {
+    if (!user) return;
+    const { error } = await supabase.from('custom_rewards').delete().eq('id', id);
+    if (error) { toast('Could not delete reward', error.message); return; }
+    setS(p => ({ ...p, rewards: p.rewards.filter(r => r.id !== id) }));
+  }, [user?.id]);
+
+  return { s, loading, bindToast, toast, toggleHabit, setMood, addLearning, removeLearning, logExercise, addActivity, removeActivity, setTime, redeem, resetDay, addHabit, updateHabit, deleteHabit, addReward, updateReward, deleteReward };
 }
 
 // ── Supabase data loader ──────────────────────────────────────
 async function loadData(userId) {
   const today = todayKey();
-  const [profRes, dailyRes, learnRes, exRes, redRes] = await Promise.all([
+  const [profRes, dailyRes, learnRes, exRes, redRes, habitsRes, rewardsRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', userId).single(),
     supabase.from('daily_logs').select('*').eq('user_id', userId).eq('date', today).single(),
     supabase.from('learned_entries').select('*').eq('user_id', userId).eq('date', today).order('created_at', { ascending: false }),
     supabase.from('exercise_logs').select('*').eq('user_id', userId).eq('date', today),
     supabase.from('redeemed_rewards').select('*').eq('user_id', userId).order('redeemed_at', { ascending: false }).limit(20),
+    supabase.from('custom_habits').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabase.from('custom_rewards').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
   ]);
+
+  let habits = habitsRes.data || [];
+  if (habits.length === 0) {
+    const seed = DEFAULT_HABITS.map(h => ({ user_id: userId, name: h.name, area: h.area, coins: h.coins }));
+    const { data } = await supabase.from('custom_habits').insert(seed).select();
+    habits = data || [];
+  }
+
+  let rewards = rewardsRes.data || [];
+  if (rewards.length === 0) {
+    const seed = DEFAULT_REWARDS.map(r => ({ user_id: userId, name: r.name, note: r.note, cost: r.cost, area: r.area }));
+    const { data } = await supabase.from('custom_rewards').insert(seed).select();
+    rewards = data || [];
+  }
 
   const p = profRes.data || {};
   const d = dailyRes.data || {};
@@ -235,6 +301,8 @@ async function loadData(userId) {
     learned:        isNewDay ? [] : (learnRes.data || []).map(l => ({ text: l.text, ts: new Date(l.created_at).getTime() })),
     exDone:         isNewDay ? {} : Object.fromEntries((exRes.data || []).map(e => [e.exercise_id, e.reps_done])),
     redeemed:       (redRes.data || []).map(r => ({ id: r.reward_id, name: r.reward_name, cost: r.cost, ts: new Date(r.redeemed_at).getTime() })),
+    habits,
+    rewards,
   };
 }
 

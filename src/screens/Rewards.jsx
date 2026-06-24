@@ -1,4 +1,3 @@
-import { REWARDS } from '../constants';
 import { MILESTONES, QUESTS, comboPct, currentQuest } from '../economy';
 import { Icon, Card, Bar, Coins, SectionHead } from '../components/ui';
 
@@ -65,7 +64,8 @@ function BoostStrip({ s }) {
 
 export default function Rewards({ store }) {
   const { s, redeem } = store;
-  const nextGoal = REWARDS.filter(r => r.cost > s.coins).sort((a, b) => a.cost - b.cost)[0];
+  const rewards = s.rewards;
+  const nextGoal = rewards.filter(r => r.cost > s.coins).sort((a, b) => a.cost - b.cost)[0];
   return (
     <div>
       <SectionHead kicker="Learn-2-Earn" title="Reward shop"
@@ -92,7 +92,10 @@ export default function Rewards({ store }) {
       </Card>
 
       <div className="grid three">
-        {REWARDS.map(r => {
+        {rewards.length === 0 && (
+          <div style={{ fontSize: 13.5, color: 'var(--ink-2)', padding: '8px 4px' }}>No rewards yet — add some in Manage.</div>
+        )}
+        {rewards.map(r => {
           const afford = s.coins >= r.cost;
           return (
             <Card key={r.id} className="reward" style={{ opacity: afford ? 1 : .78 }}>

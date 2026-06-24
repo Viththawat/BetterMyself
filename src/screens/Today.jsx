@@ -1,5 +1,5 @@
 import { areaProgress } from '../hooks/useStore';
-import { AREAS, HABITS, MOODS } from '../constants';
+import { AREAS, MOODS } from '../constants';
 import { comboPct } from '../economy';
 import { Icon, Card, Bar, Ring, Coins, Sparkline, SectionHead } from '../components/ui';
 
@@ -82,14 +82,18 @@ function MoodPicker({ s, setMood }) {
 }
 
 function HabitList({ s, toggleHabit }) {
-  const done = HABITS.filter(h => s.checks[h.id]).length;
+  const habits = s.habits;
+  const done = habits.filter(h => s.checks[h.id]).length;
   return (
     <Card>
       <div className="card-h">
         <div className="card-title">Daily check-ins</div>
-        <span className="card-eyebrow num">{done}/{HABITS.length} done</span>
+        <span className="card-eyebrow num">{done}/{habits.length} done</span>
       </div>
-      {HABITS.map(h => {
+      {habits.length === 0 && (
+        <div style={{ fontSize: 13.5, color: 'var(--ink-2)', padding: '8px 4px' }}>No habits yet — add some in Manage.</div>
+      )}
+      {habits.map(h => {
         const on = !!s.checks[h.id];
         const area = AREAS.find(a => a.id === h.area);
         return (
