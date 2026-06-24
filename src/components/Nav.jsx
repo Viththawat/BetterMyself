@@ -44,10 +44,16 @@ export function Sidebar({ route, go, s, signOut }) {
         </div>
       </div>
 
-      <button onClick={signOut}
-        style={{ marginTop: 10, fontSize: 13, color: 'var(--ink-3)', fontWeight: 600, padding: '9px 13px', borderRadius: 10, textAlign: 'left', width: '100%' }}>
-        Sign out
-      </button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <button onClick={() => go('manage')} aria-label="Manage habits and rewards"
+          style={{ flex: '0 0 auto', width: 38, height: 38, borderRadius: 10, display: 'grid', placeItems: 'center', color: route === 'manage' ? 'var(--primary)' : 'var(--ink-3)', background: route === 'manage' ? 'var(--primary-soft)' : 'var(--card-2)' }}>
+          <Icon.gear />
+        </button>
+        <button onClick={signOut}
+          style={{ flex: 1, fontSize: 13, color: 'var(--ink-3)', fontWeight: 600, padding: '9px 13px', borderRadius: 10, textAlign: 'left' }}>
+          Sign out
+        </button>
+      </div>
     </aside>
   );
 }

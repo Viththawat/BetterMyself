@@ -11,6 +11,7 @@ import Exercise from './screens/Exercise';
 import Energy from './screens/Energy';
 import Time from './screens/Time';
 import Rewards from './screens/Rewards';
+import Manage from './screens/Manage';
 
 function Toast({ items }) {
   return (
@@ -76,6 +77,7 @@ export default function App() {
       case 'energy': return <Energy store={store} />;
       case 'time':   return <Time store={store} />;
       case 'reward': return <Rewards store={store} />;
+      case 'manage': return <Manage store={store} />;
       default:       return <Today store={store} layout={t.homeLayout} />;
     }
   })();
@@ -97,6 +99,10 @@ export default function App() {
               <Icon.flame /> {store.s.streak}
             </span>
             <Coins value={store.s.coins} />
+            <button onClick={() => go('manage')} aria-label="Manage habits and rewards"
+              style={{ width: 30, height: 30, borderRadius: 9, display: 'grid', placeItems: 'center', color: route === 'manage' ? 'var(--primary)' : 'var(--ink-2)', background: route === 'manage' ? 'var(--primary-soft)' : 'var(--card-2)' }}>
+              <Icon.gear />
+            </button>
           </div>
         </header>
 
