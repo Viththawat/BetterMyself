@@ -135,8 +135,75 @@ function RewardsSection({ rewards, addReward, updateReward, deleteReward }) {
   );
 }
 
+function ExerciseForm({ initial, onSave, onCancel }) {
+  const [name, setName] = useState(initial?.name || '');
+  const [unit, setUnit] = useState(initial?.unit || 'reps');
+  const [target, setTarget] = useState(initial?.target ?? 10);
+  const valid = name.trim().length > 0;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+      <input className="field" placeholder="Exercise name" value={name} onChange={e => setName(e.target.value)} />
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <select className="field" style={{ flex: 1 }} value={unit} onChange={e => setUnit(e.target.value)}>
+          <option value="reps">reps</option>
+          <option value="sec">sec</option>
+        </select>
+        <Stepper value={target} set={setTarget} step={unit === 'sec' ? 5 : 1} min={1} max={999} suffix={unit === 'sec' ? 's' : ''} />
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={!valid}
+          onClick={() => onSave({ name: name.trim(), unit, target })}>Save</button>
+        <button className="btn btn-ghost" style={{ flex: 1, justifyContent: 'center' }} onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ExerciseRow({ ex, onEdit, onDelete }) {
+  return (
+    <div className="habit">
+      <div style={{ flex: 1 }}>
+        <div className="habit-name">{ex.name}</div>
+        <div className="habit-area">Target · {ex.target} {ex.unit}</div>
+      </div>
+      <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onEdit} aria-label="Edit exercise"><Icon.pencil /></button>
+      <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onDelete} aria-label="Delete exercise"><Icon.trash /></button>
+    </div>
+  );
+}
+
+function ExercisesSection({ exercises, addExercise, updateExercise, deleteExercise }) {
+  const [editing, setEditing] = useState(null);
+  return (
+    <Card>
+      <div className="card-h">
+        <div className="card-title">Your exercises</div>
+        <span className="card-eyebrow num">{exercises.length}</span>
+      </div>
+      {exercises.length === 0 && editing !== 'new' && (
+        <div style={{ fontSize: 13.5, color: 'var(--ink-2)', padding: '8px 4px 4px' }}>No exercises yet — add one below.</div>
+      )}
+      {exercises.map(ex => editing === ex.id ? (
+        <ExerciseForm key={ex.id} initial={ex}
+          onSave={(vals) => { updateExercise(ex.id, vals); setEditing(null); }}
+          onCancel={() => setEditing(null)} />
+      ) : (
+        <ExerciseRow key={ex.id} ex={ex} onEdit={() => setEditing(ex.id)}
+          onDelete={() => { if (confirm(`Delete "${ex.name}"?`)) deleteExercise(ex.id); }} />
+      ))}
+      {editing === 'new' ? (
+        <ExerciseForm onSave={(vals) => { addExercise(vals); setEditing(null); }} onCancel={() => setEditing(null)} />
+      ) : (
+        <button className="btn btn-ghost" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }} onClick={() => setEditing('new')}>
+          <Icon.plus /> Add exercise
+        </button>
+      )}
+    </Card>
+  );
+}
+
 export default function Manage({ store }) {
-  const { s, addHabit, updateHabit, deleteHabit, addReward, updateReward, deleteReward } = store;
+  const { s, addHabit, updateHabit, deleteHabit, addReward, updateReward, deleteReward, addExercise, updateExercise, deleteExercise } = store;
   return (
     <div>
       <SectionHead kicker="Customize" title="Manage your habits & rewards"
@@ -144,6 +211,8 @@ export default function Manage({ store }) {
       <HabitsSection habits={s.habits} addHabit={addHabit} updateHabit={updateHabit} deleteHabit={deleteHabit} />
       <div style={{ height: 'var(--gap)' }} />
       <RewardsSection rewards={s.rewards} addReward={addReward} updateReward={updateReward} deleteReward={deleteReward} />
+      <div style={{ height: 'var(--gap)' }} />
+      <ExercisesSection exercises={s.exercises} addExercise={addExercise} updateExercise={updateExercise} deleteExercise={deleteExercise} />
     </div>
   );
 }
